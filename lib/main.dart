@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_parking/pages/login.dart';
+import 'package:smart_parking/pages/home.dart';
+import 'package:smart_parking/pages/signin.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +16,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: 'Poppins'),
-      home: LoginPage()
+      home: LoginPage(),
+      routes: {
+        '/login': (context) => LoginPage(),
+        '/register': (context) => SignInPage(),
+        '/home': (context) => HomePage(),
+      },
     );
   }
 }
