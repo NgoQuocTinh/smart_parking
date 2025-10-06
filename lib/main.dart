@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_parking/pages/login.dart';
-import 'package:smart_parking/pages/home.dart';
+import 'package:smart_parking/pages/main_page.dart';
 import 'package:smart_parking/pages/signin.dart';
 
 void main() {
@@ -19,8 +19,8 @@ class MyApp extends StatelessWidget {
       home: LoginPage(),
       routes: {
         '/login': (context) => LoginPage(),
-        '/register': (context) => SignInPage(),
-        '/home': (context) => HomePage(),
+        '/signin': (context) => SignInPage(),
+        '/main': (context) => const MainPage(),
       },
     );
   }

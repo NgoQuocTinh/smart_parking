@@ -86,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: 40,),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushNamed(context, '/home');
+                          Navigator.pushNamed(context, '/main');
                         },
                         child: Container(
                           height: 50,
@@ -105,7 +105,7 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(height: 20,),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushNamed(context, '/register');
+                          Navigator.pushNamed(context, '/signin');
                         },
                         child: Container(
                           height: 50,
