@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_parking/pages/color.dart';
 import 'package:smart_parking/pages/home.dart';
-import 'package:smart_parking/pages/profile.dart';
 import 'package:smart_parking/pages/register.dart';
 import 'package:smart_parking/pages/setting.dart';
 
@@ -39,7 +38,6 @@ class _MainPageState extends State<MainPage> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.app_registration), label: 'Register'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
