@@ -244,58 +244,6 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           
           SizedBox(height: 24),
-          
-          // Payment Information Section
-          _buildSectionTitle('Payment Information', Icons.payment),
-          SizedBox(height: 16),
-          
-          TextField(
-            decoration: InputDecoration(
-              labelText: 'Card Number',
-              prefixIcon: Icon(Icons.credit_card_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: Color(0xffF7F8F8),
-            ),
-          ),
-          SizedBox(height: 16),
-          
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'MM/YY',
-                    prefixIcon: Icon(Icons.date_range_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Color(0xffF7F8F8),
-                  ),
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'CVV',
-                    prefixIcon: Icon(Icons.security_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Color(0xffF7F8F8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          SizedBox(height: 24),
-          
           // Terms and Conditions
           Row(
             children: [
