@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smart_parking/pages/color.dart';
+import '../services/auth_service.dart';
+import '../services/api_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -9,6 +11,121 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Controllers for form inputs
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  
+  // Loading state
+  bool _isLoading = false;
+
+  // Handle login API call
+  Future<void> _handleLogin() async {
+    // Validate input
+    if (_phoneController.text.trim().isEmpty) {
+      _showErrorMessage('Please enter your phone number');
+      return;
+    }
+    
+    if (_passwordController.text.trim().isEmpty) {
+      _showErrorMessage('Please enter your password');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call your Flask login API
+      final response = await AuthService.login(
+        _phoneController.text.trim(), 
+        _passwordController.text.trim()
+      );
+
+      if (AuthService.isLoginSuccessful(response)) {
+        // Login successful
+        final userId = AuthService.getUserIdFromResponse(response);
+        
+        // Show success message
+        _showSuccessMessage('Login successful! Welcome back.');
+        
+        // Navigate to home page
+        Navigator.pushReplacementNamed(context, '/main');
+        
+        // You can save user data here for later use
+        print('Logged in user ID: $userId');
+        
+      } else {
+        // Login failed - show error from server
+        final errorMessage = AuthService.getErrorMessage(response);
+        _showErrorMessage(errorMessage);
+      }
+      
+    } catch (e) {
+      // Handle different types of errors with specific messages
+      print('Login error: $e');
+      
+      String errorMessage;
+      
+      if (e is NetworkException) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+      } else if (e is UnauthorizedException) {
+        errorMessage = 'Invalid phone number or password. Please check your credentials and try again.';
+      } else if (e is BadRequestException) {
+        errorMessage = 'Please enter valid phone number and password.';
+      } else if (e is NotFoundException) {
+        errorMessage = 'Account not found. Please check your phone number or create a new account.';
+      } else if (e is ServerException) {
+        errorMessage = 'Server is temporarily unavailable. Please try again later.';
+      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection refused')) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+      } else if (e.toString().contains('TimeoutException')) {
+        errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+      } else {
+        errorMessage = 'Login failed. Please try again.';
+      }
+      
+      _showErrorMessage(errorMessage);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Show error message
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Show success message
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,8 +178,9 @@ class _LoginPageState extends State<LoginPage> {
                                 border: Border(bottom: BorderSide(color: Colors.grey.shade200))
                               ),
                               child: TextField(
+                                controller: _phoneController,
                                 decoration: InputDecoration(
-                                  hintText: "Email or Phone number",
+                                  hintText: "Phone number",
                                   hintStyle: TextStyle(color: Colors.grey),
                                   border: InputBorder.none
                                 ),
@@ -71,6 +189,8 @@ class _LoginPageState extends State<LoginPage> {
                             Container(
                               padding: EdgeInsets.all(10),
                               child: TextField(
+                                controller: _passwordController,
+                                obscureText: true,
                                 decoration: InputDecoration(
                                   hintText: "Password",
                                   hintStyle: TextStyle(color: Colors.grey),
@@ -85,18 +205,18 @@ class _LoginPageState extends State<LoginPage> {
                       Text("Forgot Password?", style: TextStyle(color: secondaryColor),),
                       SizedBox(height: 40,),
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(context, '/main');
-                        },
+                        onTap: _isLoading ? null : _handleLogin,
                         child: Container(
                           height: 50,
                           margin: EdgeInsets.symmetric(horizontal: 50),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(50),
-                            color: primaryColor
+                            color: _isLoading ? Colors.grey : primaryColor
                           ),
                           child: Center(
-                            child: Text("Login", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),),
+                            child: _isLoading 
+                              ? CircularProgressIndicator(color: Colors.white)
+                              : Text("Login", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ),
