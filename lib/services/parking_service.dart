@@ -1,6 +1,73 @@
-// import '../services/api_service.dart';
+import '../services/api_service.dart';
 
-// class ParkingService {
+class ParkingService {
+  // Get parking ID by address and parking name
+  static Future<String> getParkingId(String address, String parkingName) async {
+    final data = {
+      'address': address,
+      'parking_name': parkingName,
+    };
+    
+    try {
+      final response = await ApiService.post('/parking/get_parking_id', data);
+      
+      if (response['status'] == 'success') {
+        return response['parking_id'];
+      } else {
+        throw Exception(response['message'] ?? 'Parking not found');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Get parking slots and parse counts for UI display
+  static Future<Map<String, dynamic>> getParkingSlots(String parkingId) async {
+    final data = {
+      'parking_id': parkingId,
+    };
+    
+    try {
+      final response = await ApiService.post('/parking_slots/get_parking_slots', data);
+      
+      if (response['status'] == 'success') {
+        Map<String, dynamic> slotsData = response['data'];
+        
+        // Parse actual response format:
+        // - available_list: array of available slot IDs
+        // - occupied_list: array of occupied slot IDs  
+        // - occupied_license_list: array of license plates
+        
+        List<dynamic> availableSlots = slotsData['available_list'] ?? [];
+        List<dynamic> occupiedSlots = slotsData['occupied_list'] ?? [];
+        List<dynamic> occupiedLicenses = slotsData['occupied_license_list'] ?? [];
+        
+        int emptyCount = availableSlots.length;
+        int occupiedCount = occupiedSlots.length;
+        int totalCount = emptyCount + occupiedCount;
+        
+        print('Parsed slots - Available: $emptyCount, Occupied: $occupiedCount, Total: $totalCount');
+        print('License plates: $occupiedLicenses');
+        
+        // Return parsed data for UI
+        return {
+          'empty': emptyCount,
+          'parked': occupiedCount,
+          'total': totalCount,
+          'licenses': occupiedLicenses.map((license) => license.toString()).toList(),
+          'available_slots': availableSlots,
+          'occupied_slots': occupiedSlots,
+          'last_update': slotsData['last_update'] ?? '',
+          'parking_id': slotsData['parking_id'] ?? '',
+        };
+      } else {
+        throw Exception(response['message'] ?? 'Failed to get parking slots');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
 //   // Get all parking lots - using your parking blueprint
 //   static Future<List<Map<String, dynamic>>> getParkingLots() async {
 //     try {
@@ -21,9 +88,9 @@
 //   }
 
 //   // Get specific parking lot details
-//   static Future<Map<String, dynamic>> getParkingLotDetails(String lotId) async {
+//   static Future<Map<String, dynamic>> getParkingLotDetails(String parkingId) async {
 //     try {
-//       final response = await ApiService.get('/parking/lots/$lotId');
+//       final response = await ApiService.get('/parking/details/$parkingId');
       
 //       if (response['data'] != null) {
 //         return response['data'];
@@ -81,28 +148,28 @@
 //     }
 //   }
 
-//   // Get parked vehicles - using your parked_vehicles blueprint
-//   static Future<List<Map<String, dynamic>>> getParkedVehicles(String lotId) async {
+//   // Get parked vehicles - for licenses display in home page  
+//   static Future<List<String>> getParkedVehicles(String parkingId) async {
 //     try {
-//       final response = await ApiService.get('/parked_vehicles/lot/$lotId');
+//       final response = await ApiService.get('/parked_vehicles/lot/$parkingId');
       
-//       if (response is List) {
-//         return List<Map<String, dynamic>>.from(response);
-//       } else if (response['data'] is List) {
-//         return List<Map<String, dynamic>>.from(response['data']);
-//       } else {
-//         // If response is a single object, wrap it in a list
-//         return [Map<String, dynamic>.from(response)];
+//       List<dynamic> vehicles = [];
+//       if (response['data'] is List) {
+//         vehicles = response['data'];
+//       } else if (response is List) {
+//         vehicles = response as List<dynamic>;
 //       }
+      
+//       return vehicles.map((vehicle) => vehicle['license_plate']?.toString() ?? '').toList();
 //     } catch (e) {
 //       throw Exception('Failed to get parked vehicles: $e');
 //     }
 //   }
 
-//   // Get environment data - using your environments blueprint
-//   static Future<Map<String, dynamic>> getEnvironmentData(String lotId) async {
+//   // Get environment data - for temperature, humidity, light display
+//   static Future<Map<String, dynamic>> getEnvironmentData(String parkingId) async {
 //     try {
-//       final response = await ApiService.get('/environments/lot/$lotId');
+//       final response = await ApiService.get('/environments/lot/$parkingId');
 //       return response;
 //     } catch (e) {
 //       throw Exception('Failed to get environment data: $e');
@@ -149,3 +216,4 @@
 //     }
 //   }
 // }
+}

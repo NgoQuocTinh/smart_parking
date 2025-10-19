@@ -34,7 +34,7 @@ class AuthService {
     }
   }
 
-  // Get user profile
+  // Get user profile - userId is the phone number stored in database user_id field
   static Future<Map<String, dynamic>> getUserProfile(String userId) async {
     try {
       final response = await ApiService.get('/users/$userId');

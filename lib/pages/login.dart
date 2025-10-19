@@ -43,17 +43,25 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (AuthService.isLoginSuccessful(response)) {
-        // Login successful
+        // Login successful - extract user_id from message field
         final userId = AuthService.getUserIdFromResponse(response);
+        
+        print('Login response: $response');
+        print('Extracted user data: {userId: $userId, userPhone: $userId, userName: User}');
         
         // Show success message
         _showSuccessMessage('Login successful! Welcome back.');
         
-        // Navigate to home page
-        Navigator.pushReplacementNamed(context, '/main');
-        
-        // You can save user data here for later use
-        print('Logged in user ID: $userId');
+        // Navigate to home page with user data
+        Navigator.pushReplacementNamed(
+          context, 
+          '/main',
+          arguments: {
+            'userId': userId,                // This is the phone number from database user_id field
+            'userPhone': userId,             // Same as userId since user_id IS the phone number
+            'userName': 'User',              // Will be loaded from database name field via API
+          },
+        );
         
       } else {
         // Login failed - show error from server

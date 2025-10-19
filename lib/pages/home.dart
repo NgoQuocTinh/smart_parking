@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../services/user_service.dart';
+import '../services/parking_service.dart';
+import '../services/api_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,116 +13,318 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // User information (in a real app, this would come from login/session)
-  final String userPhoneNumber = "123-4567";
-  final String userName = "HIHI";
+  // User information (will be loaded from login/session)
+  String userPhoneNumber = "";
+  String userName = "";
+  String userId = "";
+  
+  // Flag to prevent multiple data loading
+  bool _hasLoadedData = false;
   
   // Dropdown variables
   String? selectedParkingLot;
   
-  // Parking lots data for dropdown
-  List<Map<String, dynamic>> parkingLots = [
-    {
-      'id': 'lot1',
-      'displayName': 'Downtown Plaza Zone A - 123 Main Street, Downtown',
-      'name': 'Downtown Plaza Zone A',
-      'address': '123 Main Street, Downtown',
-    },
-    {
-      'id': 'lot2', 
-      'displayName': 'Shopping Mall Zone B - 456 Commerce Ave, Mall District',
-      'name': 'Shopping Mall Zone B',
-      'address': '456 Commerce Ave, Mall District',
-    },
-    {
-      'id': 'lot3',
-      'displayName': 'Airport Terminal Zone C - 789 Airport Blvd, Terminal 1',
-      'name': 'Airport Terminal Zone C', 
-      'address': '789 Airport Blvd, Terminal 1',
-    },
-    {
-      'id': 'lot4',
-      'displayName': 'Premium Spot A-12 - 1st Floor, Section A, Row 12',
-      'name': 'Premium Spot A-12',
-      'address': '1st Floor, Section A, Row 12',
-    },
-    {
-      'id': 'lot5',
-      'displayName': 'VIP Executive Area - Ground Floor, VIP Section',
-      'name': 'VIP Executive Area',
-      'address': 'Ground Floor, VIP Section',
-    },
-  ];
+  // Parsed parking information from selected dropdown item
+  String currentParkingName = "";
+  String currentParkingAddress = "";
+  String currentParkingId = "";  // Will be set to parking name or extracted ID
+  
+  // Parking lots data for dropdown (empty initially)
+  List<Map<String, dynamic>> parkingLots = [];
 
-  // Detailed parking lot information
-  Map<String, Map<String, dynamic>> parkingLotDetails = {
-    'lot1': {
-      'name': 'Downtown Plaza Zone A',
-      'address': '123 Main Street, Downtown',
-      'empty': 15,
-      'parked': 35,
-      'total': 50,
-      'licenses': ['ABC-123', 'XYZ-789', 'LMN-456', 'DEF-321'],
-      'location': 'GPS: 40.7128, -74.0060',
-      'temperature': '22°C',
-      'humidity': '65%',
-      'light': 'Bright'
-    },
-    'lot2': {
-      'name': 'Shopping Mall Zone B',
-      'address': '456 Commerce Ave, Mall District',
-      'empty': 8,
-      'parked': 22,
-      'total': 30,
-      'licenses': ['GHI-987', 'JKL-654', 'MNO-321'],
-      'location': 'GPS: 40.7589, -73.9851',
-      'temperature': '24°C',
-      'humidity': '58%',
-      'light': 'Medium'
-    },
-    'lot3': {
-      'name': 'Airport Terminal Zone C',
-      'address': '789 Airport Blvd, Terminal 1',
-      'empty': 22,
-      'parked': 18,
-      'total': 40,
-      'licenses': ['PQR-159', 'STU-753', 'VWX-951', 'YZA-357', 'BCD-852'],
-      'location': 'GPS: 40.6892, -74.1745',
-      'temperature': '20°C',
-      'humidity': '70%',
-      'light': 'Dim'
-    },
-    'lot4': {
-      'name': 'Premium Spot A-12',
-      'address': '1st Floor, Section A, Row 12',
-      'empty': 1,
-      'parked': 0,
-      'total': 1,
-      'licenses': <String>[],
-      'location': 'GPS: 40.7128, -74.0062',
-      'temperature': '23°C',
-      'humidity': '60%',
-      'light': 'Bright'
-    },
-    'lot5': {
-      'name': 'VIP Executive Area',
-      'address': 'Ground Floor, VIP Section',
-      'empty': 3,
-      'parked': 7,
-      'total': 10,
-      'licenses': ['VIP-001', 'VIP-002', 'VIP-003'],
-      'location': 'GPS: 40.7125, -74.0058',
-      'temperature': '25°C',
-      'humidity': '55%',
-      'light': 'Bright'
-    },
-  };
+  // Detailed parking lot information (empty initially)
+  Map<String, Map<String, dynamic>> parkingLotDetails = {};
 
   @override
   void initState() {
     super.initState();
-    // Set the first parking lot as default selection
-    selectedParkingLot = parkingLots.first['id'];
+    // No default selection since there's no data
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Only load data once to prevent resetting dropdown selection
+    if (_hasLoadedData) return;
+    
+    // Get user data passed from login page
+    final Map<String, dynamic>? args = 
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    
+    if (args != null) {
+      setState(() {
+        userId = args['userId'] ?? '';           // Phone number (from database user_id field)
+        userPhoneNumber = args['userPhone'] ?? ''; // Same as userId 
+        userName = args['userName'] ?? 'User';     // Default, will be loaded from database
+      });
+      
+      print('Home page received user data: userId=$userId, phone=$userPhoneNumber, name=$userName');
+      
+      // Load user's actual data from database using the userId (phone number)
+      if (userId.isNotEmpty) {
+        _loadUserData();
+        _hasLoadedData = true; // Mark as loaded to prevent reload
+      }
+    }
+  }
+
+  // Load user-specific data from APIs
+  Future<void> _loadUserData() async {
+    print('Loading user data for userId: $userId');
+    
+    try {
+      // Get real user information from database
+      final userInfo = await UserService.getUserInfo(userId);
+      
+      setState(() {
+        // Update user name from database
+        userName = userInfo['name'] ?? 'User';
+        // userPhoneNumber remains the same as it's the user_id
+      });
+      
+      print('Updated user info from API: name=$userName, userId=$userId');
+      
+      // Load user's registered parkings
+      await _loadUserRegisteredParkings();
+      
+    } catch (e) {
+      print('Failed to load user info: $e');
+      // Handle error - maybe show a message to user
+      if (e is NetworkException) {
+        print('Network connection error');
+      } else if (e is NotFoundException) {
+        print('User information not found');
+      } else {
+        print('Unknown error: $e');
+      }
+    }
+  }
+
+  // Load user's registered parkings from API
+  Future<void> _loadUserRegisteredParkings() async {
+    print('Loading registered parkings for userId: $userId');
+    
+    try {
+      // Get registered parkings list from API
+      final registeredParkings = await UserService.getUserRegisters(userId);
+      
+      setState(() {
+        // Convert to dropdown format
+        parkingLots = registeredParkings.map((parkingString) => {
+          'value': parkingString,
+          'display': parkingString,
+        }).toList();
+        
+        // Auto select first option ONLY if no selection has been made yet
+        if (parkingLots.isNotEmpty && selectedParkingLot == null) {
+          selectedParkingLot = parkingLots[0]['value'];
+          _processSelectedParking(selectedParkingLot!);
+          print('Auto-selected first parking: ${selectedParkingLot}');
+        }
+        // If user already selected something, keep their selection
+        else if (selectedParkingLot != null) {
+          print('Keeping user selection: ${selectedParkingLot}');
+        }
+      });
+      
+      print('Loaded ${registeredParkings.length} registered parkings');
+      
+    } catch (e) {
+      print('Failed to load registered parkings: $e');
+      
+      // Set empty state for UI
+      setState(() {
+        parkingLots = [];
+        selectedParkingLot = null;
+      });
+    }
+  }
+  
+  // Build basic parking info from parsed dropdown data
+  Widget _buildBasicParkingInfo() {
+    return Container(
+      margin: EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xff1D1617).withValues(alpha: 0.08),
+            spreadRadius: 0,
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Parking Name (from parsed data)
+          _buildInfoRow(
+            icon: Icons.local_parking,
+            label: 'Parking Name',
+            value: currentParkingName,
+            color: Colors.blue,
+          ),
+          SizedBox(height: 10),
+          
+          // Row 2: Address (from parsed data)
+          _buildInfoRow(
+            icon: Icons.location_on,
+            label: 'Address',
+            value: currentParkingAddress,
+            color: Colors.green,
+          ),
+          SizedBox(height: 10),
+          
+          // Placeholder for additional info
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.grey.shade600, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'Loading detailed information...',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Process selected parking string (similar to Unity ProcessAndDisplayInfo)
+  void _processSelectedParking(String selectedString) {
+    print('Processing selected parking: $selectedString');
+    
+    // Parse format: "address_parts, parking_name"
+    // Example: "123 Nguyen Van A, District 1, Parking A"
+    // Parking name is always after the last comma
+    List<String> splitData = selectedString.split(', ');
+    
+    if (splitData.length >= 2) {
+      // Last part is parking name (always after last comma)
+      String parkingName = splitData.last.trim();
+      
+      // Join remaining parts as address
+      String address = splitData.sublist(0, splitData.length - 1).join(', ').trim();
+      
+      print('Parsed - Address: $address, Parking Name: $parkingName');
+      
+      // Update state with parsed information immediately
+      setState(() {
+        currentParkingName = parkingName;
+        currentParkingAddress = address;
+        currentParkingId = ""; // Will be loaded from API
+      });
+      
+      print('Updated UI - Name: $currentParkingName, Address: $currentParkingAddress');
+      
+      // Load real parking ID from API
+      _loadParkingId(address, parkingName);
+      
+    } else {
+      print('Invalid parking string format: $selectedString');
+      
+      // Set empty values for invalid format
+      setState(() {
+        currentParkingName = "";
+        currentParkingAddress = "";
+        currentParkingId = "";
+      });
+    }
+  }
+  
+  // Load real parking ID from API using address and parking name
+  Future<void> _loadParkingId(String address, String parkingName) async {
+    print('Loading parking ID for: $address, $parkingName');
+    
+    try {
+      final parkingId = await ParkingService.getParkingId(address, parkingName);
+      
+      setState(() {
+        currentParkingId = parkingId;
+      });
+      
+      print('Loaded parking ID: $currentParkingId');
+      
+      // Load parking slots information
+      await _loadParkingSlots();
+      
+    } catch (e) {
+      print('Failed to load parking ID: $e');
+      
+      // Fallback: use parking name as ID
+      setState(() {
+        currentParkingId = parkingName;
+      });
+      
+      print('Using fallback parking ID: $currentParkingId');
+    }
+  }
+  
+  // Load parking slots and update UI with empty/parked/total counts
+  Future<void> _loadParkingSlots() async {
+    if (currentParkingId.isEmpty) return;
+    
+    print('Loading parking slots for parking ID: $currentParkingId');
+    
+    try {
+      final slotsInfo = await ParkingService.getParkingSlots(currentParkingId);
+      
+      // Update parkingLotDetails with all parking information from API
+      setState(() {
+        parkingLotDetails[selectedParkingLot!] = {
+          'name': currentParkingName,
+          'address': currentParkingAddress, 
+          'empty': slotsInfo['empty'],
+          'parked': slotsInfo['parked'],
+          'total': slotsInfo['total'],
+          // 'location': slotsInfo['parking_id'] ?? currentParkingId, // Not needed for now
+          // 'licenses': slotsInfo['licenses'] ?? [], // Not needed for now
+          'temperature': 'N/A', // Will be loaded separately if needed
+          'humidity': 'N/A',
+          'light': 'N/A',
+          'last_update': slotsInfo['last_update'] ?? '',
+        };
+      });
+      
+      print('Updated parking details - Empty: ${slotsInfo['empty']}, Parked: ${slotsInfo['parked']}, Total: ${slotsInfo['total']}');
+      print('License plates: ${slotsInfo['licenses']}');
+      print('Last update: ${slotsInfo['last_update']}');
+      
+    } catch (e) {
+      print('Failed to load parking slots: $e');
+      
+      // Set default values on error
+      setState(() {
+        parkingLotDetails[selectedParkingLot!] = {
+          'name': currentParkingName,
+          'address': currentParkingAddress,
+          'empty': 0,
+          'parked': 0, 
+          'total': 0,
+          // 'location': currentParkingId, // Not needed for now
+          // 'licenses': [], // Not needed for now
+          'temperature': 'N/A',
+          'humidity': 'N/A',
+          'light': 'N/A',
+        };
+      });
+    }
   }
 
   @override
@@ -243,37 +448,55 @@ class _HomePageState extends State<HomePage> {
                 width: 1,
               ),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedParkingLot,
-                isExpanded: true,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  color: Colors.grey.shade600,
-                ),
-                items: parkingLots.map((Map<String, dynamic> lot) {
-                  return DropdownMenuItem<String>(
-                    value: lot['id'],
+            child: parkingLots.isEmpty 
+              ? Container(
+                  height: 48,
+                  child: Center(
                     child: Text(
-                      lot['displayName'],
+                      'No registered parkings found',
                       style: TextStyle(
-                        color: Colors.black87,
+                        color: Colors.grey.shade600,
                         fontSize: 14,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedParkingLot = newValue;
-                  });
-                  if (newValue != null) {
-                    _showCategoryInfo(newValue);
-                  }
-                },
-              ),
-            ),
+                  ),
+                )
+              : DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedParkingLot,
+                    isExpanded: true,
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: Colors.grey.shade600,
+                    ),
+                    items: parkingLots.map((Map<String, dynamic> lot) {
+                      return DropdownMenuItem<String>(
+                        value: lot['value'],
+                        child: Text(
+                          lot['display'],
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      print('Dropdown onChanged called with: $newValue');
+                      setState(() {
+                        selectedParkingLot = newValue;
+                        if (newValue != null) {
+                          _processSelectedParking(newValue);
+                        }
+                      });
+                      print('Updated selectedParkingLot to: $selectedParkingLot');
+                      if (newValue != null) {
+                        _showCategoryInfo(newValue);
+                      }
+                    },
+                  ),
+                ),
           ),
         ],
       ),
@@ -281,17 +504,61 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _informationSection() {
-    Map<String, dynamic>? currentInfo = parkingLotDetails[selectedParkingLot];
-    
-    if (currentInfo == null) {
+    if (selectedParkingLot == null || parkingLots.isEmpty) {
       return Container(
         margin: EdgeInsets.symmetric(horizontal: 20),
-        padding: EdgeInsets.all(0),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(15),
         ),
+        child: Center(
+          child: Text(
+            'Please select a parking lot',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+        ),
       );
+    }
+
+    // Check if we have detailed info from API, otherwise show basic parsed info
+    Map<String, dynamic>? currentInfo = parkingLotDetails[selectedParkingLot];
+    
+    if (currentInfo == null) {
+      // Show basic info from parsed dropdown data
+      if (currentParkingName.isNotEmpty && currentParkingAddress.isNotEmpty) {
+        return Container(
+          margin: EdgeInsets.only(left: 20, right: 20, top: 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildBasicParkingInfo(),
+            ],
+          ),
+        );
+      } else {
+        // Still loading or no selection
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Center(
+            child: Text(
+              'Loading parking information...',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     return Container(
@@ -349,18 +616,18 @@ class _HomePageState extends State<HomePage> {
           ),
           SizedBox(height: 10),
           
-          // Row 4: License Plates
-          _buildLicensesRow(info['licenses']),
-          SizedBox(height: 10),
+          // Row 4: License Plates - COMMENTED (not needed for now)
+          // _buildLicensesRow(info['licenses']),
+          // SizedBox(height: 10),
 
-          // Row 5: Location
-          _buildInfoRow(
-            icon: Icons.gps_fixed,
-            label: 'Lot',
-            value: info['location'],
-            color: Colors.purple,
-          ),
-          SizedBox(height: 10),
+          // Row 5: Location/Lot - COMMENTED (not needed for now) 
+          // _buildInfoRow(
+          //   icon: Icons.gps_fixed,
+          //   label: 'Lot',
+          //   value: info['location'],
+          //   color: Colors.purple,
+          // ),
+          // SizedBox(height: 10),
           
           // Row 6: Environment Information
           _buildEnvironmentRow(
@@ -480,67 +747,68 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildLicensesRow(List<dynamic> licenses) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.indigo.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(Icons.confirmation_number, size: 16, color: Colors.indigo),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'License Plates',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 4),
-              licenses.isEmpty
-                  ? Text(
-                      'No vehicles parked',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade500,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    )
-                  : Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: licenses.map((license) => Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Text(
-                          license.toString(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _buildLicensesRow(List<dynamic> licenses) - COMMENTED (not needed for now)
+  // {
+  //   return Row(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Container(
+  //         padding: EdgeInsets.all(8),
+  //         decoration: BoxDecoration(
+  //           color: Colors.indigo.withValues(alpha: 0.1),
+  //           borderRadius: BorderRadius.circular(8),
+  //         ),
+  //         child: Icon(Icons.confirmation_number, size: 16, color: Colors.indigo),
+  //       ),
+  //       SizedBox(width: 12),
+  //       Expanded(
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text(
+  //               'License Plates',
+  //               style: TextStyle(
+  //                 fontSize: 12,
+  //                 color: Colors.grey.shade600,
+  //                 fontWeight: FontWeight.w500,
+  //               ),
+  //             ),
+  //             SizedBox(height: 4),
+  //             licenses.isEmpty
+  //                 ? Text(
+  //                     'No vehicles parked',
+  //                     style: TextStyle(
+  //                       fontSize: 14,
+  //                       color: Colors.grey.shade500,
+  //                       fontStyle: FontStyle.italic,
+  //                     ),
+  //                   )
+  //                 : Wrap(
+  //                     spacing: 6,
+  //                     runSpacing: 4,
+  //                     children: licenses.map((license) => Container(
+  //                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+  //                       decoration: BoxDecoration(
+  //                         color: Colors.grey.shade100,
+  //                         borderRadius: BorderRadius.circular(8),
+  //                         border: Border.all(color: Colors.grey.shade300),
+  //                       ),
+  //                       child: Text(
+  //                         license.toString(),
+  //                         style: TextStyle(
+  //                           fontSize: 12,
+  //                           color: Colors.black87,
+  //                           fontWeight: FontWeight.w500,
+  //                         ),
+  //                       ),
+  //                     )).toList(),
+  //                   ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildEnvironmentRow({
     required String temperature,
@@ -609,7 +877,7 @@ class _HomePageState extends State<HomePage> {
   void _saveQRCode() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('QR Code saved to gallery!'),
+        content: Text('QR code saved to gallery!'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
@@ -625,7 +893,7 @@ class _HomePageState extends State<HomePage> {
         },
         icon: Icon(Icons.qr_code, size: 24),
         label: Text(
-          'Show My QR Code',
+          'Show my QR Code',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -714,7 +982,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SizedBox(height: 12),
                       Text(
-                        userName,
+                        userName.isNotEmpty ? userName : 'User',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -735,7 +1003,7 @@ class _HomePageState extends State<HomePage> {
                             Icon(Icons.phone, color: Colors.indigo.shade600, size: 16),
                             SizedBox(width: 6),
                             Text(
-                              userPhoneNumber,
+                              userPhoneNumber.isNotEmpty ? userPhoneNumber : 'No phone number',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -767,7 +1035,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   child: QrImageView(
-                    data: userPhoneNumber,
+                    data: userPhoneNumber.isNotEmpty ? userPhoneNumber : 'No user data',
                     version: QrVersions.auto,
                     size: 180.0,
                     backgroundColor: Colors.white,
@@ -860,20 +1128,13 @@ class _HomePageState extends State<HomePage> {
 
   void _showCategoryInfo(String lotId) {
     // This method handles what happens when a parking lot is selected
-    final lot = parkingLots.firstWhere((lot) => lot['id'] == lotId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Selected: ${lot['name']}'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    // Will be implemented when connecting to real data
   }
 
   AppBar _appBar() {
     return AppBar(
         title: const Text(
-        'Home',
+        'Trang chủ',
         style: TextStyle(
           color: Colors.black,
           fontWeight: FontWeight.bold,
