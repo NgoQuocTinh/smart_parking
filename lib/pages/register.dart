@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/parking_service.dart';
 import '../services/user_session.dart';
-import '../services/api_service.dart';
+import '../services/payment_service.dart';
+import '../pages/payment_qr_page.dart';
 
 class RegisterPage extends StatefulWidget {  
   const RegisterPage({super.key});
@@ -28,7 +29,6 @@ class _RegisterPageState extends State<RegisterPage> {
   // Search functionality
   List<Map<String, dynamic>> _allParkings = [];
   List<Map<String, dynamic>> _filteredParkings = [];
-  bool _isSearching = false;
   bool _showSearchResults = false;
   
   // Selected parking info
@@ -461,7 +461,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       SizedBox(width: 12),
                       Text(
-                        'Đang đăng ký...',
+                        'Registering...',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -491,41 +491,41 @@ class _RegisterPageState extends State<RegisterPage> {
           SizedBox(height: 16),
           
           // Summary Card
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Monthly Fee:', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text('1000 VND', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Setup Fee:', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text('2000 VND', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
-                  ],
-                ),
-                Divider(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('3000 VND', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue.shade700)),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // Container(
+          //   padding: EdgeInsets.all(16),
+          //   decoration: BoxDecoration(
+          //     color: Colors.blue.shade50,
+          //     borderRadius: BorderRadius.circular(12),
+          //     border: Border.all(color: Colors.blue.shade200),
+          //   ),
+          //   child: Column(
+          //     children: [
+          //       Row(
+          //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //         children: [
+          //           Text('Monthly Fee:', style: TextStyle(fontWeight: FontWeight.w500)),
+          //           Text('1000 VND', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+          //         ],
+          //       ),
+          //       SizedBox(height: 8),
+          //       Row(
+          //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //         children: [
+          //           Text('Setup Fee:', style: TextStyle(fontWeight: FontWeight.w500)),
+          //           Text('2000 VND', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+          //         ],
+          //       ),
+          //       Divider(),
+          //       Row(
+          //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //         children: [
+          //           Text('Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          //           Text('3000 VND', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue.shade700)),
+          //         ],
+          //       ),
+          //     ],
+          //   ),
+          // ),
         ],
       ),
     );
@@ -777,70 +777,69 @@ class _RegisterPageState extends State<RegisterPage> {
     });
     
     try {
-      // Call registration API
-      final response = await ParkingService.registerMonthlyParking(
+      // Generate payment order
+      final paymentOrder = PaymentService.generatePaymentOrder(
         userId: userId,
         parkingId: _selectedParkingId,
         licensePlate: _licensePlateController.text.trim(),
+        planType: _selectedPlan ?? '1month',
       );
       
-      // Handle different response statuses based on API documentation
-      final status = response['status'];
-      final message = response['message'];
+      print('Generated payment order: ${paymentOrder['order_id']}');
       
-      switch (status) {
-        case 'success':
-          _showSuccessMessage('Đăng ký thành công!');
-          _refreshRegisterData(); // Clear form
-          // Navigate back to main page after success
-          Future.delayed(Duration(seconds: 2), () {
-            Navigator.pushNamed(context, '/main');
-          });
-          break;
-          
-        case 'exists':
-          _showErrorMessage('Biển số xe đã được đăng ký và còn hiệu lực!');
-          break;
-          
-        case 'conflict':
-          _showErrorMessage('Biển số xe này đã được người khác đăng ký!');
-          break;
-          
-        case 'not_found':
-          _showErrorMessage('Không tìm thấy bãi xe.');
-          break;
-          
-        case 'inactive':
-          _showErrorMessage('Bãi xe hiện không hoạt động.');
-          break;
-          
-        case 'fail':
-          _showErrorMessage(message ?? 'Lỗi dữ liệu không hợp lệ.');
-          break;
-          
-        default:
-          _showErrorMessage('Đã xảy ra lỗi không xác định.');
-          print('Unhandled status: $status');
-          break;
+      // Navigate to QR payment page
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentQRPage(paymentOrder: paymentOrder),
+        ),
+      );
+      
+      // Handle payment result
+      if (result == 'payment_initiated') {
+        // User confirmed they've made the transfer
+        _showSuccessMessage('Thank you! Registration will be activated after payment confirmation.');
+        
+        // Create pending registration record (if you have backend API)
+        await _createPendingRegistration(paymentOrder);
+        
+        // Clear form and navigate back
+        _refreshRegisterData();
+        Future.delayed(Duration(seconds: 3), () {
+          Navigator.pushNamed(context, '/main');
+        });
+      } else {
+        // User cancelled payment
+        _showErrorMessage('Payment was cancelled. You can try again anytime.');
       }
       
     } catch (e) {
-      print('Registration error: $e');
+      print('Payment initialization error: $e');
+      _showErrorMessage('Error creating payment information. Please try again.');
       
-      // Handle different types of exceptions
-      if (e is NetworkException) {
-        _showErrorMessage('Lỗi kết nối đến máy chủ. Vui lòng kiểm tra internet.');
-      } else if (e is BadRequestException) {
-        _showErrorMessage('Dữ liệu không hợp lệ. Vui lòng kiểm tra thông tin.');
-      } else if (e is UnauthorizedException) {
-        _showErrorMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-      } else {
-        _showErrorMessage('Đã xảy ra lỗi. Vui lòng thử lại sau.');
-      }
     } finally {
       setState(() {
         _isSubmittingRegistration = false;
       });
+    }
+  }
+
+  // Create pending registration record (optional - for tracking)
+  Future<void> _createPendingRegistration(Map<String, dynamic> paymentOrder) async {
+    try {
+      // If you have API to store pending registrations
+      final pendingData = PaymentService.createPendingRegistration(
+        paymentOrder: paymentOrder,
+      );
+      
+      print('Pending registration created: ${pendingData['order_id']}');
+      
+      // TODO: Call API to store pending registration
+      // await ApiService.post('/registers/create_pending', pendingData);
+      
+    } catch (e) {
+      print('Failed to create pending registration: $e');
+      // Non-critical error - don't show to user
     }
   }
 
