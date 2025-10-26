@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/user_session.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -8,156 +10,165 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // Sample user data
-  final String userName = "HiHi";
-  final String phoneNumber = "+1 (555) 123-4567";
-  final String email = "hi.hi@gmail.com";
-  
-  // Sample vehicle data
-  final List<Map<String, dynamic>> registeredVehicles = [
-    {
-      'licensePlate': 'ABC-123',
-      'make': 'Toyota',
-      'model': 'Camry',
-      'color': 'Silver',
-      'year': '2022',
-      'isPrimary': true,
-    },
-    {
-      'licensePlate': 'XYZ-789',
-      'make': 'Honda',
-      'model': 'Civic',
-      'color': 'Blue',
-      'year': '2021',
-      'isPrimary': false,
-    },
-  ];
-  
-  // Sample parking history
-  final List<Map<String, dynamic>> parkingHistory = [
-    {
-      'date': '2024-10-09',
-      'timeIn': '08:30 AM',
-      'timeOut': '05:45 PM',
-      'location': 'Downtown Plaza Zone A',
-      'duration': '9h 15m',
-      'cost': '1200 VND',
-      'status': 'Completed',
-    },
-    {
-      'date': '2024-10-08',
-      'timeIn': '09:15 AM',
-      'timeOut': '06:30 PM',
-      'location': 'Shopping Mall Zone B',
-      'duration': '9h 15m',
-      'cost': '1100 VND',
-      'status': 'Completed',
-    },
-    {
-      'date': '2024-10-07',
-      'timeIn': '07:45 AM',
-      'timeOut': '04:20 PM',
-      'location': 'Airport Terminal Zone C',
-      'duration': '8h 35m',
-      'cost': '950 VND',
-      'status': 'Completed',
-    },
-  ];
+  // User data will be loaded from UserSession
+  Map<String, dynamic>? userData;
+  List<Map<String, dynamic>> registeredVehicles = [];
+  List<Map<String, dynamic>> parkingHistory = [];
   
   bool notificationsEnabled = true;
   bool locationEnabled = true;
   String selectedLanguage = 'English';
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() async {
+    try {
+      final userSession = Provider.of<UserSession>(context, listen: false);
+      
+      if (userSession.isValidSession()) {
+        userData = userSession.getUserData();
+        
+        // Load user vehicles and parking history here
+        // For now, we'll leave them empty until we implement the APIs
+        await _loadVehicles();
+        await _loadParkingHistory();
+      }
+      
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadVehicles() async {
+    registeredVehicles = [];
+  }
+
+  Future<void> _loadParkingHistory() async {
+    parkingHistory = [];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _appBar(),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          _userInfoSection(),
-          SizedBox(height: 24),
-          _registeredVehiclesSection(),
-          SizedBox(height: 24),
-          _parkingHistorySection(),
-          SizedBox(height: 24),
-          _appSettingsSection(),
-          SizedBox(height: 24),
-          _accountActionsSection(),
-          SizedBox(height: 20),
-        ],
-      ),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: EdgeInsets.all(16),
+              children: [
+                _userInfoSection(),
+                SizedBox(height: 24),
+                _registeredVehiclesSection(),
+                SizedBox(height: 24),
+                _parkingHistorySection(),
+                SizedBox(height: 24),
+                _appSettingsSection(),
+                SizedBox(height: 24),
+                _accountActionsSection(),
+                SizedBox(height: 20),
+              ],
+            ),
     );
   }
 
   Widget _userInfoSection() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0xff1D1617).withValues(alpha: 0.08),
-            spreadRadius: 0,
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.person, color: Colors.blue.shade600, size: 24),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'User Information',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      'Manage your personal details',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.edit, color: Colors.blue.shade600),
-                onPressed: () {
-                  _showEditProfileDialog();
-                },
+    return Consumer<UserSession>(
+      builder: (context, userSession, child) {
+        return Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0xff1D1617).withValues(alpha: 0.08),
+                spreadRadius: 0,
+                blurRadius: 20,
               ),
             ],
           ),
-          SizedBox(height: 16),
-          Divider(),
-          SizedBox(height: 16),
-          _buildInfoRow(Icons.person_outline, 'Full Name', userName),
-          SizedBox(height: 12),
-          _buildInfoRow(Icons.phone_outlined, 'Phone Number', phoneNumber),
-          SizedBox(height: 12),
-          _buildInfoRow(Icons.email_outlined, 'Email Address', email),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.person, color: Colors.blue.shade600, size: 24),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'User Information',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          'Manage your personal details',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit, color: Colors.blue.shade600),
+                    onPressed: () {
+                      _showEditProfileDialog();
+                    },
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              Divider(),
+              SizedBox(height: 16),
+              if (userSession.isLoading)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                _buildInfoRow(
+                  Icons.person_outline, 
+                  'Full Name', 
+                  userSession.userName.isNotEmpty ? userSession.userName : 'Not available'
+                ),
+                SizedBox(height: 12),
+                _buildInfoRow(
+                  Icons.phone_outlined, 
+                  'Phone Number', 
+                  userSession.userPhone.isNotEmpty ? userSession.userPhone : 'Not available'
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -202,7 +213,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     Text(
-                      '${registeredVehicles.length} vehicles registered',
+                      registeredVehicles.isEmpty 
+                          ? 'No vehicles registered' 
+                          : '${registeredVehicles.length} vehicles registered',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -214,7 +227,10 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           SizedBox(height: 16),
-          ...registeredVehicles.map((vehicle) => _buildVehicleCard(vehicle)).toList(),
+          if (registeredVehicles.isEmpty)
+            _buildEmptyVehiclesState()
+          else
+            ...registeredVehicles.map((vehicle) => _buildVehicleCard(vehicle)),
         ],
       ),
     );
@@ -367,7 +383,10 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           SizedBox(height: 16),
-          ...parkingHistory.take(3).map((history) => _buildHistoryCard(history)).toList(),
+          if (parkingHistory.isEmpty)
+            _buildEmptyHistoryState()
+          else
+            ...parkingHistory.take(3).map((history) => _buildHistoryCard(history)),
         ],
       ),
     );
@@ -682,6 +701,85 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildEmptyVehiclesState() {
+    return Container(
+      padding: EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Icon(
+            Icons.directions_car_outlined,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No Vehicles Registered',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Add your vehicle information to get started',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              
+              _showAddVehicleDialog();
+            },
+            icon: Icon(Icons.add),
+            label: Text('Add Vehicle'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyHistoryState() {
+    return Container(
+      padding: EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Icon(
+            Icons.history,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No Parking History',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Your parking sessions will appear here',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   // Dialog methods
   void _showEditProfileDialog() {
     showDialog(
@@ -699,21 +797,21 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // void _showAddVehicleDialog() {
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) => AlertDialog(
-  //       title: Text('Add Vehicle'),
-  //       content: Text('Add vehicle feature coming soon!'),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(context),
-  //           child: Text('Close'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  void _showAddVehicleDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add Vehicle'),
+        content: Text('Add vehicle feature coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showVehicleOptionsDialog(Map<String, dynamic> vehicle) {
     showDialog(
@@ -793,7 +891,12 @@ class _SettingsPageState extends State<SettingsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Implement sign out logic
+              
+              // Clear user session
+              final userSession = Provider.of<UserSession>(context, listen: false);
+              userSession.clearSession();
+              
+              // Navigate to login page
               Navigator.pushReplacementNamed(context, '/login');
             },
             child: Text('Sign Out'),
