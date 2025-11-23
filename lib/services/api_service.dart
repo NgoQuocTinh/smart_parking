@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Your Flask server URL - Android Emulator uses special IP
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
+  // static const String baseUrl = 'http://10.0.2.2:5000/api';
+  static const String baseUrl = 'https://parking-cloud-server.onrender.com/api';
   
   // Alternative IPs for different environments:
   // static const String baseUrl = 'http://192.168.1.19:5000/api'; // Physical device
