@@ -142,6 +142,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Container(
         decoration: BoxDecoration(
           gradient: backgroundGradient,
@@ -170,8 +171,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Padding(
                   padding: EdgeInsets.all(30),
-                  child: Column(
-                    children: <Widget>[
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: <Widget>[
                       SizedBox(height: 60,),
                       Container(
                         decoration: BoxDecoration(
@@ -253,6 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       )
                     ],
+                    ),
                   ),
                 ),
               ),
