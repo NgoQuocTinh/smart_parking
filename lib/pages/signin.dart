@@ -20,36 +20,124 @@ class _SignInPageState extends State<SignInPage> {
   // Loading state
   bool _isLoading = false;
 
+  // Validate full name
+  // Valid: At least 2 characters
+  String? _validateFullName(String name) {
+    if (name.isEmpty) {
+      return 'Full name is required';
+    }
+
+    name = name.trim();
+
+    if (name.length < 2) {
+      return 'Full name must have at least 2 characters';
+    }
+
+    return null;
+  }
+
+  // Validate phone number format
+  // Valid: 10 digits, starting with 03/05/07/09
+  String? _validatePhone(String phone) {
+    if (phone.isEmpty) {
+      return 'Phone number is required';
+    }
+
+    phone = phone.trim();
+
+    // Check if phone has exactly 10 digits
+    if (phone.length < 10) {
+      return 'Phone number must have 10 digits';
+    }
+
+    if (phone.length > 10) {
+      return 'Phone number can have maximum 10 digits';
+    }
+
+    // Check if phone contains only digits
+    final RegExp phoneRegex = RegExp(r'^[0-9]{10}$');
+    if (!phoneRegex.hasMatch(phone)) {
+      return 'Invalid phone number format';
+    }
+
+    // Check if phone starts with valid prefix (03/05/07/09)
+    if (!phone.startsWith('03') && !phone.startsWith('05') && 
+        !phone.startsWith('07') && !phone.startsWith('09')) {
+      return 'Invalid phone number format';
+    }
+
+    return null;
+  }
+
+  // Validate password
+  // Valid: 6-20 characters
+  String? _validatePassword(String password) {
+    if (password.isEmpty) {
+      return 'Password is required';
+    }
+
+    if (password.length < 6) {
+      return 'Password must have at least 6 characters';
+    }
+
+    if (password.length > 20) {
+      return 'Password must have less than 20 characters';
+    }
+
+    return null;
+  }
+
+  // Validate confirm password
+  String? _validateConfirmPassword(String confirmPassword, String password) {
+    if (confirmPassword.isEmpty) {
+      return 'Confirm password is required';
+    }
+
+    if (confirmPassword.length < 6) {
+      return 'Password must have at least 6 characters';
+    }
+
+    if (confirmPassword.length > 20) {
+      return 'Password must have less than 20 characters';
+    }
+
+    if (confirmPassword != password) {
+      return 'Confirm password does not match';
+    }
+
+    return null;
+  }
+
   // Handle registration API call
   Future<void> _handleRegistration() async {
-    // Validate input
-    if (_nameController.text.trim().isEmpty) {
-      _showErrorMessage('Please enter your full name');
-      return;
-    }
-    
-    if (_phoneController.text.trim().isEmpty) {
-      _showErrorMessage('Please enter your phone number');
-      return;
-    }
-    
-    if (_passwordController.text.trim().isEmpty) {
-      _showErrorMessage('Please enter your password');
+    // Validate full name
+    String? nameError = _validateFullName(_nameController.text);
+    if (nameError != null) {
+      _showErrorMessage(nameError);
       return;
     }
 
-    // if (_passwordController.text.trim().length < 6) {
-    //   _showErrorMessage('Password must be at least 6 characters long');
-    //   return;
-    // }
-    
-    if (_confirmPasswordController.text.trim().isEmpty) {
-      _showErrorMessage('Please confirm your password');
+    // Validate phone
+    String? phoneError = _validatePhone(_phoneController.text);
+    if (phoneError != null) {
+      _showErrorMessage(phoneError);
       return;
     }
 
-    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
-      _showErrorMessage('Passwords do not match');
+    // Validate password
+    String? passwordError = _validatePassword(_passwordController.text);
+    if (passwordError != null) {
+      _showErrorMessage(passwordError);
+      return;
+    }
+
+    // Validate confirm password
+    String? confirmPasswordError = _validateConfirmPassword(
+      _confirmPasswordController.text,
+      _passwordController.text,
+    );
+    if (confirmPasswordError != null) {
+      _showErrorMessage(confirmPasswordError);
       return;
     }
 

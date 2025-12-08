@@ -20,16 +20,70 @@ class _LoginPageState extends State<LoginPage> {
   // Loading state
   bool _isLoading = false;
 
+  // Validate phone number format
+  // Valid: 10 digits, starting with 03/05/07/09
+  String? _validatePhone(String phone) {
+    if (phone.isEmpty) {
+      return 'Phone number is required';
+    }
+
+    phone = phone.trim();
+
+    // Check if phone has exactly 10 digits
+    if (phone.length < 10) {
+      return 'Phone number must have 10 digits';
+    }
+
+    if (phone.length > 10) {
+      return 'Phone number can have maximum 10 digits';
+    }
+
+    // Check if phone contains only digits
+    final RegExp phoneRegex = RegExp(r'^[0-9]{10}$');
+    if (!phoneRegex.hasMatch(phone)) {
+      return 'Invalid phone number format';
+    }
+
+    // Check if phone starts with valid prefix (03/05/07/09)
+    if (!phone.startsWith('03') && !phone.startsWith('05') && 
+        !phone.startsWith('07') && !phone.startsWith('09')) {
+      return 'Invalid phone number format';
+    }
+
+    return null;
+  }
+
+  // Validate password
+  // Valid: 6-20 characters
+  String? _validatePassword(String password) {
+    if (password.isEmpty) {
+      return 'Password is required';
+    }
+
+    if (password.length < 6) {
+      return 'Password must have at least 6 characters';
+    }
+
+    if (password.length > 20) {
+      return 'Password must have less than 20 characters';
+    }
+
+    return null;
+  }
+
   // Handle login API call
   Future<void> _handleLogin() async {
-    // Validate input
-    if (_phoneController.text.trim().isEmpty) {
-      _showErrorMessage('Please enter your phone number');
+    // Validate phone
+    String? phoneError = _validatePhone(_phoneController.text);
+    if (phoneError != null) {
+      _showErrorMessage(phoneError);
       return;
     }
-    
-    if (_passwordController.text.trim().isEmpty) {
-      _showErrorMessage('Please enter your password');
+
+    // Validate password
+    String? passwordError = _validatePassword(_passwordController.text);
+    if (passwordError != null) {
+      _showErrorMessage(passwordError);
       return;
     }
 
