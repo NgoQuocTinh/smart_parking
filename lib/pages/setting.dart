@@ -80,7 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final vehicles = await UserService.getRegisteredVehicles(userSession.userId);
       
       setState(() {
-        registeredVehicles = vehicles;
+        registeredVehicles = vehicles.reversed.toList();
         isLoadingVehicles = false;
       });
       
@@ -127,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       
       setState(() {
-        parkingHistory = histories;
+        parkingHistory = histories.reversed.toList();
         isLoadingHistory = false;
       });
       

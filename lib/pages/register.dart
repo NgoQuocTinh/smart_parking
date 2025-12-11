@@ -75,9 +75,28 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  // Format license plate to add hyphen (30A99999 -> 30A-99999)
+  String _formatLicensePlate(String licensePlate) {
+    // Remove any existing hyphens and trim
+    licensePlate = licensePlate.replaceAll('-', '').trim().toUpperCase();
+    
+    // Check if it matches format without hyphen: 2 digits + 1 letter + 4-5 digits
+    final RegExp noHyphenRegex = RegExp(r'^([0-9]{2})([A-Z]{1})([0-9]{4,5})$');
+    final match = noHyphenRegex.firstMatch(licensePlate);
+    
+    if (match != null) {
+      // Format: 30A99999 -> 30A-99999
+      return '${match.group(1)}${match.group(2)}-${match.group(3)}';
+    }
+    
+    // Return original if no match (will be caught by validation)
+    return licensePlate;
+  }
+
   // Validate license plate format
-  // Valid format: 2 digits + 1 uppercase letter + 4-5 digits
-  // Examples: 30A99999, 30A9999
+  // Valid format: 2 digits + 1 uppercase letter + hyphen + 4-5 digits
+  // Examples: 30A-99999, 30A-9999
+  // Also accepts: 30A99999, 30A9999 (will be auto-formatted)
   // Invalid: A99999, 99999, 30@99999, 30a99999, 300A99999, 30A999
   String? _validateLicensePlate(String licensePlate) {
     // Check if empty
@@ -85,15 +104,20 @@ class _RegisterPageState extends State<RegisterPage> {
       return 'License plate is required';
     }
 
-    // Trim whitespace
-    licensePlate = licensePlate.trim();
+    // Trim whitespace and convert to uppercase
+    licensePlate = licensePlate.trim().toUpperCase();
 
-    // Check format using regex: 2 digits + 1 uppercase letter + 4-5 digits
-    // Pattern: ^[0-9]{2}[A-Z]{1}[0-9]{4,5}$
-    final RegExp licensePlateRegex = RegExp(r'^[0-9]{2}[A-Z]{1}[0-9]{4,5}$');
+    // Check format with hyphen: 2 digits + 1 uppercase letter + hyphen + 4-5 digits
+    // Pattern: ^[0-9]{2}[A-Z]{1}-[0-9]{4,5}$
+    final RegExp licensePlateWithHyphenRegex = RegExp(r'^[0-9]{2}[A-Z]{1}-[0-9]{4,5}$');
     
-    if (!licensePlateRegex.hasMatch(licensePlate)) {
-      return 'Invalid license plate format. Example: 30A99999 or 30A9999';
+    // Check format without hyphen: 2 digits + 1 uppercase letter + 4-5 digits
+    // Pattern: ^[0-9]{2}[A-Z]{1}[0-9]{4,5}$
+    final RegExp licensePlateNoHyphenRegex = RegExp(r'^[0-9]{2}[A-Z]{1}[0-9]{4,5}$');
+    
+    if (!licensePlateWithHyphenRegex.hasMatch(licensePlate) && 
+        !licensePlateNoHyphenRegex.hasMatch(licensePlate)) {
+      return 'Invalid license plate format. Example: 30A-99999 or 30A-9999';
     }
 
     // Valid format
@@ -294,6 +318,7 @@ class _RegisterPageState extends State<RegisterPage> {
             controller: _licensePlateController,
             decoration: InputDecoration(
               labelText: 'License Plate Number',
+              hintText: 'e.g., 30A-99999 or 30A-9999',
               prefixIcon: Icon(Icons.confirmation_number_outlined),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -301,6 +326,29 @@ class _RegisterPageState extends State<RegisterPage> {
               filled: true,
               fillColor: Color(0xffF7F8F8),
             ),
+            onChanged: (value) {
+              // Auto-format on change (convert to uppercase)
+              if (value.isNotEmpty) {
+                final cursorPosition = _licensePlateController.selection.baseOffset;
+                final formatted = value.toUpperCase();
+                if (formatted != value) {
+                  _licensePlateController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(offset: cursorPosition),
+                  );
+                }
+              }
+            },
+            onEditingComplete: () {
+              // Auto-add hyphen when user finishes editing
+              if (_licensePlateController.text.isNotEmpty) {
+                final formatted = _formatLicensePlate(_licensePlateController.text);
+                setState(() {
+                  _licensePlateController.text = formatted;
+                });
+              }
+              FocusScope.of(context).nextFocus();
+            },
           ),
           SizedBox(height: 16),
           
@@ -762,6 +810,12 @@ class _RegisterPageState extends State<RegisterPage> {
       _showErrorMessage(licensePlateError);
       return;
     }
+    
+    // Auto-format license plate (add hyphen if not present)
+    String formattedPlate = _formatLicensePlate(_licensePlateController.text.trim());
+    setState(() {
+      _licensePlateController.text = formattedPlate;
+    });
     
     // Check if license plate is already registered for this parking lot
     // This will be done by calling the API which will return appropriate error
